@@ -456,7 +456,7 @@ slapfight_fpga slapcore(
 	.V_BLANK(vblank),
 	.RESET_n(~reset),
 	.pause(pause_cpu),
-	.CONTROLS(~{m_coin,m_start2p,m_start1p,m_shoot2,m_shoot,m_up,m_down,m_left,m_right}),
+	.CONTROLS(~{m_coin,m_start1p,m_start2p,m_shoot,m_shoot2,m_up,m_down,m_left,m_right}),
 	.DIP1(sw[1]), 
 	.DIP2(sw[2]),
 	.dn_addr(ioctl_addr),
