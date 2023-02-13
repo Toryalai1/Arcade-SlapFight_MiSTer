@@ -34,39 +34,35 @@
 // 0x26000 - 0x2DFFF = eprom_7 - Background - Tiles
 // 0x2E000 - 0x35FFF = eprom_8 - Background - Tiles
 
-
 module selector
-(
-	input logic [24:0] ioctl_addr,
-	output logic ep0_cs, ep0b_cs, ep1_cs, ep2_cs, ep3_cs, ep4_cs, ep5_cs, ep6_cs, ep7_cs, ep8_cs, ep9_cs, ep10_cs, ep11_cs, ep12_cs, ep13_cs,ep_dummy_cs,cp1_cs,cp2_cs,cp3_cs
-);
+	(
+		input logic [24:0] ioctl_addr,
+		output logic ep0_cs, ep0b_cs, ep1_cs, ep2_cs, ep3_cs, ep4_cs, ep5_cs, ep6_cs, ep7_cs, ep8_cs, ep9_cs, ep10_cs, ep11_cs, ep12_cs, ep13_cs, ep_dummy_cs, cp1_cs, cp2_cs, cp3_cs
+	);
 
 	always_comb begin
 		{ep0_cs, ep0b_cs, ep1_cs, ep2_cs, ep3_cs, ep4_cs, ep5_cs, ep6_cs, ep7_cs, ep8_cs, ep9_cs, ep10_cs, ep11_cs, ep12_cs, ep13_cs,ep_dummy_cs,cp1_cs,cp2_cs,cp3_cs} = 0;
-
-
 		if     (ioctl_addr < 'h04000) ep0_cs = 1; // 0x4000 13   - Main CPU
 		else if(ioctl_addr < 'h08000) ep0b_cs = 1;// 0x4000 13   - Main CPU
 		else if(ioctl_addr < 'h10000) ep1_cs = 1; // 0x8000 14   - Main CPU
 		else if(ioctl_addr < 'h12000) ep2_cs = 1; // 0x2000 14	- Audio CPU Program
 		else if(ioctl_addr < 'h14000) ep3_cs = 1; // 0x2000 12   - Foreground - Chars
 		else if(ioctl_addr < 'h16000) ep4_cs = 1; // 0x2000 12   - Foreground - Chars
+		
 		else if(ioctl_addr < 'h18000) ep_dummy_cs = 1; // 0x2000 12   - Foreground - Chars
-		else if(ioctl_addr < 'h20000) ep5_cs = 1; // 0x8000 14   - Background - Tiles
-		else if(ioctl_addr < 'h28000) ep6_cs = 1; // 0x8000 14	- Background - Tiles
-		else if(ioctl_addr < 'h30000) ep7_cs = 1; // 0x8000 14	- Background - Tiles
-		else if(ioctl_addr < 'h38000) ep8_cs = 1; // 0x8000 14	- Background - Tiles
+		
+		else if(ioctl_addr < 'h38000) ep5_cs = 1; // 0x8000 14   - Background - Tiles
+//		else if(ioctl_addr < 'h28000) ep6_cs = 1; // 0x8000 14	- Background - Tiles
+//		else if(ioctl_addr < 'h30000) ep7_cs = 1; // 0x8000 14	- Background - Tiles
+//		else if(ioctl_addr < 'h38000) ep8_cs = 1; // 0x8000 14	- Background - Tiles
 		else if(ioctl_addr < 'h40000) ep9_cs = 1; // 0x8000 14	- Sprites
 		else if(ioctl_addr < 'h48000) ep10_cs = 1; // 0x8000 14	- Sprites
 		else if(ioctl_addr < 'h50000) ep11_cs = 1; // 0x8000 14	- Sprites
 		else if(ioctl_addr < 'h58000) ep12_cs = 1; // 0x8000 14	- Sprites
-
 		else if(ioctl_addr < 'h58100) cp1_cs = 1; // 0x8000 14	- Colour Prom #1
 		else if(ioctl_addr < 'h58200) cp2_cs = 1; // 0x8000 14	- Colour Prom #2
 		else if(ioctl_addr < 'h58300) cp3_cs = 1; // 0x8000 14	- Colour Prom #3
-
 		else ep13_cs = 1; // 0x8000 14	- Background - Tiles
-
 	end
 endmodule
 
@@ -74,6 +70,8 @@ endmodule
 // EPROMS //
 ////////////
 
+
+			
 module eprom_0 //program
 (
 	input logic        CLK,
@@ -174,7 +172,7 @@ module eprom_2 //audio program
 	);
 endmodule
 
-module eprom_3
+module eprom_3 //chars
 (
 	input logic        CLK,
 	input logic        CLK_DL,
@@ -222,7 +220,7 @@ module eprom_4
 	);
 endmodule
 
-module eprom_dummy
+module eprom_dummy //mcu
 (
 	input logic        CLK,
 	input logic        CLK_DL,
@@ -257,7 +255,7 @@ module eprom_5
 	input logic        WR,
 	output logic [7:0] DATA
 );
-	dpram_dc #(.widthad_a(15)) eprom_5
+	dpram_dc #(.widthad_a(15)) eprom_5  //made 1 bit smaller for testing
 	(
 		.clock_a(CLK),
 		.address_a(ADDR[14:0]),
