@@ -13,14 +13,14 @@
 `timescale 1ns/1ps
 
 module slapfight_fpga(
+	input ram_clk,
 	input clkm_36MHZ,
 	input	clkaudio,
 	input clkf_cpu,	
-	input pcb,	
+	input [7:0] pcb,	
 	output [3:0] RED,     	//from fpga core to sv
 	output [3:0] GREEN,		//from fpga core to sv
 	output [3:0] BLUE,		//from fpga core to sv
-	output core_pix_clk,		//from fpga core to sv	
 	output H_SYNC,				//from fpga core to sv
 	output V_SYNC,				//from fpga core to sv
 	output H_BLANK,
@@ -33,6 +33,14 @@ module slapfight_fpga(
 	input [24:0] dn_addr,
 	input 		 dn_wr,
 	input [7:0]  dn_data,
+	
+   output  [16:0] SRAM_ADDR, //! Address Out
+   inout   [15:0] SRAM_DQ,   //! Data In/Out
+   output         SRAM_OE_N, //! Output Enable
+   output         SRAM_WE_N, //! Write Enable
+   output         SRAM_UB_N, //! Upper Byte Mask
+   output         SRAM_LB_N, //! Lower Byte Mask	
+	
 	output [15:0] audio_l, //from jt49_1 .sound
 	output [15:0] audio_r,  //from jt49_2 .sound
 	input [15:0] hs_address,
@@ -72,7 +80,7 @@ ROM15 U8B_ROM15(
 wire U9E_cout;
 wire U8E_cout;
 
-always @(posedge V_SCRL_SEL) VSCRL_sum_in<=(pcb) ? ({Z80A_databus_out[7:4],!IO2_SF,!IO2_SF,!IO2_SF,!IO2_SF}) : Z80A_databus_out; //AY1_IOB_in[7:5]
+always @(posedge V_SCRL_SEL) VSCRL_sum_in<=(pcb==1) ? ({Z80A_databus_out[7:4],!IO2_SF,!IO2_SF,!IO2_SF,!IO2_SF}) : Z80A_databus_out; //AY1_IOB_in[7:5]
 always @(posedge H_SYNC) LINE_CLK2<=ROM15_out[1];
 
 //(pcb) ? 0 : 
@@ -127,7 +135,7 @@ wire [3:0] U1J_sum,U2J_sum,U1H_sum;
 wire U1J_cout,U2J_cout,U1H_cout,CPU_RAM_SYNC,CPU_RAM_LBUF;
 reg IO2_SF;
 
-always @(posedge RESET_n) IO2_SF<=(pcb) ? DIP1[5] : DIP1[6];	
+always @(posedge RESET_n) IO2_SF<=(pcb==1|pcb==2) ? DIP1[5] : DIP1[6];	
 
 always @(posedge H_SCRL_LO_SEL) begin 
 	HSCRL[7:0]<=Z80A_databus_out;		//U3J
@@ -210,6 +218,7 @@ wire [8:0] HPIX_LT;
 foreground_layer slap_foreground(
 	.master_clk(clkm_36MHZ),
 	.pixel_clk(pixel_clk),
+	.pcb(pcb),	
 	.VPIX(VPIX),
 	.HPIX(HPIX),
 	.SCREEN_FLIP(IO2_SF),
@@ -233,6 +242,7 @@ foreground_layer slap_foreground(
 );
 
 background_layer slap_background(
+	.ram_clk(ram_clk),
 	.master_clk(clkm_36MHZ),
 	.pixel_clk(pixel_clk),
 	.pcb(pcb),
@@ -253,6 +263,12 @@ background_layer slap_background(
 	.ep6_cs_i(ep6_cs_i),
 	.ep7_cs_i(ep7_cs_i),
 	.ep8_cs_i(ep8_cs_i),
+	.SRAM_ADDR(SRAM_ADDR), //! Address Out
+	.SRAM_DQ(SRAM_DQ),   //! Data In/Out
+	.SRAM_OE_N(SRAM_OE_N), //! Output Enable
+	.SRAM_WE_N(SRAM_WE_N), //! Write Enable
+	.SRAM_UB_N(SRAM_UB_N), //! Upper Byte Mask
+	.SRAM_LB_N(SRAM_LB_N), //! Lower Byte Mask	
 	.dn_wr(dn_wr),
 	.BG_HI_out(BG_HI_out),
 	.BG_LO_out(BG_LO_out),
@@ -265,6 +281,7 @@ sprite_layer slap_sprites(
 	.pixel_clk(pixel_clk),
 	.npixel_clk(clk_6M_1),
 	.pixel_clk_lb(clk_6M_3),
+	.pcb(pcb),	
 	.VPIX(VPIX),
 	.HPIX(HPIX),
 	.HPIX_LT(HPIX_LT),
@@ -339,7 +356,6 @@ assign clk_6M_1=U6Q_out[0];
 assign pixel_clk=!U6Q_out[0];
 assign clk_6M_3=!U6Q_out[2];
 
-assign core_pix_clk=pixel_clk;
 
 wire PUR = 1'b1;
 
@@ -382,7 +398,7 @@ wire RD_BUFFER_FULL_68705,WR_BUFFER_FULL_68705;
 always @(posedge maincpuclk_6M) begin
 
  
-		rZ80A_databus_in <=	(!(SEL_ROM0A)&!Z80_RD) 						? prom_prog1_out:  //&!Z80_RD implied
+		rZ80A_databus_in <=	(!(SEL_ROM0A)&!Z80_RD) 		? prom_prog1_out:  //&!Z80_RD implied
 									(!(SEL_ROM0B)&!Z80_RD)						? prom_prog1b_out:
 									(!SEL_ROM1&!Z80_RD) 							? prom_prog2_out: //&!Z80_RD implied
 									(!Z80M_IOREQ&!Z80_RD)						? {7'b0000000,LINE_CLK2} :				//VBLANK - Tiger Heli - RD_BUFFER_FULL_68705,WR_BUFFER_FULL_68705 removed from bit 1 & 2
@@ -401,7 +417,7 @@ assign Z80A_databus_in = rZ80A_databus_in;
 
 wire FG_WAIT,BG_WAIT;
 
-wire wait_n = !pause&AU_WAIT&((FG_WAIT&BG_WAIT)|pcb); //FG&BG wait when in 'Tiger Heli' mode
+wire wait_n = !pause&AU_WAIT&((FG_WAIT&BG_WAIT)|(pcb==1)); //FG&BG wait when in 'Tiger Heli' mode
 
 wire SEL_EXT,SEL_ROM1,SEL_ROM0B,SEL_ROM0A;
 wire AU_RDY;
@@ -474,6 +490,8 @@ dpram_dc #(.widthad_a(11)) U8M_Z80M_RAM //sf
 );
 
 //Z80A CPU main program program ROM #1
+
+
 eprom_0 U8N_A77_00
 (
 	.ADDR(Z80A_addrbus[13:0]),//tiger heli rom size reduction
@@ -485,6 +503,7 @@ eprom_0 U8N_A77_00
 	.CS_DL(ep0_cs_i),
 	.WR(dn_wr)
 );
+
 
 eprom_0b U8N_A77_00b //tiger heli ROM addition
 (
@@ -639,7 +658,7 @@ wire m_left   		= CONTROLS[1];
 wire m_down   		= CONTROLS[2];
 wire m_up     		= CONTROLS[3];
 wire m_shoot  		= CONTROLS[4];
-wire m_shoot2  		= CONTROLS[5];
+wire m_shoot2  	= CONTROLS[5];
 wire m_start1p  	= CONTROLS[6];
 wire m_start2p  	= CONTROLS[7];
 wire m_coin   		= CONTROLS[8];
@@ -702,31 +721,31 @@ wire [3:0] U6_7D_out,U6D_out,U7D_out,U7E_out;
 
 //------------------------------------------------- MiSTer data write selector -------------------------------------------------//
 //Instantiate MiSTer data write selector to generate write enables for loading ROMs into the FPGA's BRAM
-wire ep0_cs_i, ep0b_cs_i, ep1_cs_i, ep2_cs_i, ep3_cs_i, ep4_cs_i, ep5_cs_i, ep6_cs_i, ep7_cs_i, ep8_cs_i,ep9_cs_i,ep10_cs_i,ep11_cs_i,ep12_cs_i,ep13_cs_i,ep_dummy_cs_i,cp1_cs_i,cp2_cs_i,cp3_cs_i;
+	wire ep0_cs_i, ep0b_cs_i, ep1_cs_i, ep2_cs_i, ep3_cs_i, ep4_cs_i, ep5_cs_i, ep6_cs_i, ep7_cs_i, ep8_cs_i,ep9_cs_i,ep10_cs_i,ep11_cs_i,ep12_cs_i,ep13_cs_i,ep_dummy_cs_i,cp1_cs_i,cp2_cs_i,cp3_cs_i;
 
-selector DLSEL
-(
-	.ioctl_addr(dn_addr),
-	.ep0_cs(ep0_cs_i),
-	.ep0b_cs(ep0b_cs_i), //addition for Tiger Heli
-	.ep1_cs(ep1_cs_i),
-	.ep2_cs(ep2_cs_i),
-	.ep3_cs(ep3_cs_i),
-	.ep4_cs(ep4_cs_i),
-	.ep5_cs(ep5_cs_i),
-	.ep6_cs(ep6_cs_i),
-	.ep7_cs(ep7_cs_i),	
-	.ep8_cs(ep8_cs_i),
-	.ep9_cs(ep9_cs_i),	
-	.ep10_cs(ep10_cs_i),
-	.ep11_cs(ep11_cs_i),
-	.ep12_cs(ep12_cs_i),
-	.ep13_cs(ep13_cs_i),
-	.ep_dummy_cs(ep_dummy_cs_i),
-	.cp1_cs(cp1_cs_i),
-	.cp2_cs(cp2_cs_i),
-	.cp3_cs(cp3_cs_i)	
-);
+	selector DLSEL
+	(
+		.ioctl_addr(dn_addr),
+		.ep0_cs(ep0_cs_i),
+		.ep0b_cs(ep0b_cs_i), //addition for Tiger Heli
+		.ep1_cs(ep1_cs_i),
+		.ep2_cs(ep2_cs_i),
+		.ep3_cs(ep3_cs_i),
+		.ep4_cs(ep4_cs_i),
+		.ep5_cs(ep5_cs_i),
+		.ep6_cs(ep6_cs_i),
+		.ep7_cs(ep7_cs_i),	
+		.ep8_cs(ep8_cs_i),
+		.ep9_cs(ep9_cs_i),	
+		.ep10_cs(ep10_cs_i),
+		.ep11_cs(ep11_cs_i),
+		.ep12_cs(ep12_cs_i),
+		.ep13_cs(ep13_cs_i),
+		.ep_dummy_cs(ep_dummy_cs_i),
+		.cp1_cs(cp1_cs_i),
+		.cp2_cs(cp2_cs_i),
+		.cp3_cs(cp3_cs_i)	
+	);
 
 
 wire [15:0] BG_RAMD;
@@ -774,7 +793,7 @@ wire nRST_AU=!AU_ENABLE|AU_INT_ON|!RESET_n;
 always @(posedge AUD_INT_CLK or negedge RESET_n) AU_INT_ON<=(!RESET_n) ? 1'b1 : 1'b0; //Initialize audio interrupt
 always @(posedge aucpuclk_3M or posedge nRST_AU) U7A_TMR_out <= (nRST_AU) ? 0 : U7A_TMR_out+1;
 
-always @(*) AUDIO_CPU_NMI<= (pcb) ? !U7A_TMR_out[12] : !U7A_TMR_out[13]; //change interrupt timing for Tiger Heli board 
+always @(*) AUDIO_CPU_NMI<= (pcb==1) ? !U7A_TMR_out[12] : !U7A_TMR_out[13]; //change interrupt timing for Tiger Heli board 
 
 //  **** FINAL 12-BIT ANALOGUE OUTPUT ******
 //  PRIORTY: FOREGROUND->SPRITES->BACKGROUND
